@@ -1,5 +1,9 @@
 {
   "schedule": "*/30 * * * * *",
   "randomValueApiUrl": "https://api.mathjs.org/v4/?expr=randomInt(1,101)",
-  "userListApiUrl": "https://jsonplaceholder.typicode.com/users"
+  "userListApiUrl": "https://jsonplaceholder.typicode.com/users",
+  "storageContract": {
+    "address": "0x750325aF39f44004aeA3070488A1fA31BeA85cF0",
+    "chainName": "ethereum-testnet-sepolia"
+  }
 }
