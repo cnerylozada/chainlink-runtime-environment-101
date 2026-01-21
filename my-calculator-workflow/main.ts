@@ -2,6 +2,7 @@ import {
   ConsensusAggregationByFields,
   consensusMedianAggregation,
   cre,
+  identical,
   NodeRuntime,
   Runner,
   type Runtime,
@@ -15,11 +16,11 @@ const configSchema = z.object({
 });
 type Config = z.infer<typeof configSchema>;
 
-const userSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  username: z.string(),
-});
+interface User {
+  id: string;
+  name: string;
+  username: string;
+}
 
 const fetchRandomValue = (nodeRuntime: NodeRuntime<Config>) => {
   const httpClient = new cre.capabilities.HTTPClient();
@@ -44,20 +45,30 @@ const fethUserById = (nodeRuntime: NodeRuntime<Config>) => {
   const response = httpClient.sendRequest(nodeRuntime, request).result();
 
   const bodyText = new TextDecoder().decode(response.body);
-  return userSchema.parse(bodyText);
+  return JSON.parse(bodyText) as User;
 };
 
-const onCronTrigger = (runtime: Runtime<Config>): { randomValue: bigint } => {
+const onCronTrigger = (
+  runtime: Runtime<Config>,
+): { randomValue: bigint; user: User } => {
   runtime.log("Hello world! Workflow triggered.");
 
   const randomValue = runtime
-    .runInNodeMode(fetchRandomValue, consensusMedianAggregation())()
+    .runInNodeMode(fetchRandomValue, consensusMedianAggregation<bigint>())()
     .result();
-  runtime.log(
-    `Successfully fetched and aggregated math result: ${randomValue}`,
-  );
 
-  return { randomValue };
+  const user = runtime
+    .runInNodeMode(
+      fethUserById,
+      ConsensusAggregationByFields<User>({
+        id: identical,
+        name: identical,
+        username: identical,
+      }),
+    )()
+    .result();
+
+  return { randomValue, user };
 };
 
 const initWorkflow = (config: Config) => {
