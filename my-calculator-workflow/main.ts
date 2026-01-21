@@ -1,12 +1,63 @@
-import { cre, Runner, type Runtime } from "@chainlink/cre-sdk";
+import {
+  ConsensusAggregationByFields,
+  consensusMedianAggregation,
+  cre,
+  NodeRuntime,
+  Runner,
+  type Runtime,
+} from "@chainlink/cre-sdk";
 import { z } from "zod";
 
-const configSchema = z.object({ schedule: z.string() });
+const configSchema = z.object({
+  schedule: z.string(),
+  randomValueApiUrl: z.string(),
+  userListApiUrl: z.string(),
+});
 type Config = z.infer<typeof configSchema>;
 
-const onCronTrigger = (runtime: Runtime<Config>): string => {
+const userSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  username: z.string(),
+});
+
+const fetchRandomValue = (nodeRuntime: NodeRuntime<Config>) => {
+  const httpClient = new cre.capabilities.HTTPClient();
+
+  const request = {
+    url: nodeRuntime.config.randomValueApiUrl,
+    method: "GET" as const,
+  };
+  const response = httpClient.sendRequest(nodeRuntime, request).result();
+
+  const bodyText = new TextDecoder().decode(response.body);
+  return BigInt(bodyText.trim());
+};
+
+const fethUserById = (nodeRuntime: NodeRuntime<Config>) => {
+  const httpClient = new cre.capabilities.HTTPClient();
+
+  const request = {
+    url: nodeRuntime.config.userListApiUrl + "/1",
+    method: "GET" as const,
+  };
+  const response = httpClient.sendRequest(nodeRuntime, request).result();
+
+  const bodyText = new TextDecoder().decode(response.body);
+  return userSchema.parse(bodyText);
+};
+
+const onCronTrigger = (runtime: Runtime<Config>): { randomValue: bigint } => {
   runtime.log("Hello world! Workflow triggered.");
-  return "Hello world!";
+
+  const randomValue = runtime
+    .runInNodeMode(fetchRandomValue, consensusMedianAggregation())()
+    .result();
+  runtime.log(
+    `Successfully fetched and aggregated math result: ${randomValue}`,
+  );
+
+  return { randomValue };
 };
 
 const initWorkflow = (config: Config) => {

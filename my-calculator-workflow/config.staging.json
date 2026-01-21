@@ -1,3 +1,5 @@
 {
-  "schedule": "*/30 * * * * *"
+  "schedule": "*/30 * * * * *",
+  "randomValueApiUrl": "https://api.mathjs.org/v4/?expr=randomInt(1,101)",
+  "userListApiUrl": "https://jsonplaceholder.typicode.com/users"
 }
