@@ -4,6 +4,8 @@
   "userListApiUrl": "https://jsonplaceholder.typicode.com/users",
   "storageContract": {
     "address": "0x750325aF39f44004aeA3070488A1fA31BeA85cF0",
-    "chainName": "ethereum-testnet-sepolia"
+    "chainName": "ethereum-testnet-sepolia",
+    "calculatorConsumerAddress": "0x95e10BaC2B89aB4D8508ccEC3f08494FcB3D23cb",
+    "gasLimit": "500000"
   }
 }

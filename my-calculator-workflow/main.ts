@@ -10,6 +10,7 @@ import {
   ConsensusAggregationByFields,
   identical,
   cre,
+  hexToBase64,
 } from "@chainlink/cre-sdk";
 import {
   encodeFunctionData,
@@ -17,6 +18,8 @@ import {
   zeroAddress,
   Address,
   bytesToHex,
+  encodeAbiParameters,
+  parseAbiParameters,
 } from "viem";
 import { Storage } from "../contracts/abi/Storage";
 import { Config, configSchema, IUser, IResult } from "./models";
@@ -45,6 +48,43 @@ const fethUserById = (nodeRuntime: NodeRuntime<Config>) => {
 
   const bodyText = new TextDecoder().decode(response.body);
   return JSON.parse(bodyText) as IUser;
+};
+
+const updateCalculatorResult = (
+  runtime: Runtime<Config>,
+  evmClient: EVMClient,
+  data: { offchainValue: bigint; onchainValue: bigint; finalResult: bigint },
+) => {
+  const { offchainValue, onchainValue, finalResult } = data;
+  const reportData = encodeAbiParameters(
+    parseAbiParameters(
+      "uint256 offchainValue, int256 onchainValue, uint256 finalResult",
+    ),
+    [offchainValue, onchainValue, finalResult],
+  );
+  const reportResponse = runtime
+    .report({
+      encodedPayload: hexToBase64(reportData),
+      encoderName: "evm",
+      signingAlgo: "ecdsa",
+      hashingAlgo: "keccak256",
+    })
+    .result();
+
+  const { calculatorConsumerAddress, gasLimit } =
+    runtime.config.storageContract;
+  const writeReportResult = evmClient
+    .writeReport(runtime, {
+      receiver: calculatorConsumerAddress,
+      report: reportResponse,
+      gasConfig: {
+        gasLimit,
+      },
+    })
+    .result();
+
+  const txHash = bytesToHex(writeReportResult.txHash || new Uint8Array(32));
+  return txHash;
 };
 
 const onCronTrigger = (runtime: Runtime<Config>): IResult => {
@@ -97,7 +137,13 @@ const onCronTrigger = (runtime: Runtime<Config>): IResult => {
     data: bytesToHex(getValueContractCall.data),
   });
 
-  return { randomValue, onChainValue: value, user };
+  const txHash = updateCalculatorResult(runtime, evmClient, {
+    offchainValue: randomValue,
+    onchainValue: value,
+    finalResult: randomValue + value,
+  });
+
+  return { randomValue, onChainValue: value, user, txHash };
 };
 
 const initWorkflow = (config: Config) => {
