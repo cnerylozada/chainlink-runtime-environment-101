@@ -1,29 +1,51 @@
-import { cre, Runner, type Runtime } from "@chainlink/cre-sdk";
+import {
+  cre,
+  decodeJson,
+  HTTPCapability,
+  HTTPPayload,
+  Runner,
+  type Runtime,
+} from "@chainlink/cre-sdk";
+import { ConfigType, configSchema, createMarketSchema } from "./models";
 
-type Config = {
-  schedule: string;
+const onHttpTrigger = (
+  runtime: Runtime<ConfigType>,
+  payload: HTTPPayload,
+): string => {
+  if (!payload.input || !payload.input.length) {
+    runtime.log(`Error: Empty request payload`);
+    return "Error: Empty request payload";
+  }
+  const inputData = createMarketSchema.safeParse(decodeJson(payload.input));
+  if (!inputData.success) {
+    return "Error: invalid model";
+  }
+  const { data } = inputData;
+  runtime.log(`inputData: ${data.question}`);
+
+  return "Success";
 };
 
-const onCronTrigger = (runtime: Runtime<Config>): string => {
-  runtime.log("Hello world! Workflow triggered.");
-  return "Hello world!";
-};
-
-const initWorkflow = (config: Config) => {
-  const cron = new cre.capabilities.CronCapability();
+const initWorkflow = (config: ConfigType) => {
+  const httpTrigger = new HTTPCapability();
 
   return [
     cre.handler(
-      cron.trigger(
-        { schedule: config.schedule }
-      ), 
-      onCronTrigger
+      httpTrigger.trigger({
+        authorizedKeys: [
+          {
+            type: "KEY_TYPE_ECDSA_EVM",
+            publicKey: config.authorizedEVMAddress,
+          },
+        ],
+      }),
+      onHttpTrigger,
     ),
   ];
 };
 
 export async function main() {
-  const runner = await Runner.newRunner<Config>();
+  const runner = await Runner.newRunner<ConfigType>({ configSchema });
   await runner.run(initWorkflow);
 }
 
