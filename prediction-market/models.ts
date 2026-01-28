@@ -11,7 +11,6 @@ export const configSchema = z.object({
 export type ConfigType = z.infer<typeof configSchema>;
 
 export const createMarketSchema = z.object({
-  name: z.string(),
-  age: z.number().int().positive(),
+  question: z.string(),
 });
 export type CreateMarketSchemaType = z.infer<typeof createMarketSchema>;

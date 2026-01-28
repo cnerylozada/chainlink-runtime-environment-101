@@ -17,18 +17,15 @@ import {
 } from "./models";
 import { bytesToHex, encodeAbiParameters, parseAbiParameters } from "viem";
 
-const createNewStudent = (
+const createNewMarket = (
   runtime: Runtime<ConfigType>,
   evmClient: EVMClient,
   inputData: CreateMarketSchemaType,
 ) => {
-  const { name, age } = inputData;
-  runtime.log(`name: ${name} age: ${age}`);
-
-  const reportData = encodeAbiParameters(
-    parseAbiParameters("string, uint256"),
-    [name as string, BigInt(age)],
-  );
+  const { question } = inputData;
+  const reportData = encodeAbiParameters(parseAbiParameters("string"), [
+    question as string,
+  ]);
 
   const reportResponse = runtime
     .report({
@@ -60,26 +57,23 @@ const onHttpTrigger = (
   runtime: Runtime<ConfigType>,
   payload: HTTPPayload,
 ): string => {
-  if (!payload.input || !payload.input.length) {
-    runtime.log(`Error: Empty request payload`);
-    return "Error: Empty request payload";
-  }
+  if (!payload.input || !payload.input.length)
+    throw new Error(`Empty request payload`);
+
   const inputData = createMarketSchema.safeParse(decodeJson(payload.input));
-  if (!inputData.success) {
-    return "Error: invalid model";
-  }
+  if (!inputData.success) throw new Error(`Invalid model`);
+  runtime.log(`input: ${inputData.data}`);
+
   const network = getNetwork({
     chainFamily: "evm",
     chainSelectorName: runtime.config.evm.chainName,
     isTestnet: true,
   });
-  if (!network) {
-    return "Error: network not found";
-  }
+  if (!network) throw new Error(`Unknown chain`);
 
   const evmClient = new EVMClient(network.chainSelector.selector);
-  const txHash = createNewStudent(runtime, evmClient, inputData.data);
-  runtime.log(`txHash: ${txHash}`);
+  // const txHash = createNewMarket(runtime, evmClient, inputData.data);
+  // runtime.log(`txHash: ${txHash}`);
 
   return "Success";
 };
