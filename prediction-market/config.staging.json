@@ -1,3 +1,8 @@
 {
-  "authorizedEVMAddress": "0xDE645d7DC8f33DbC92dd970d408A9f9cF50eCD1B"
+  "authorizedEVMAddress": "0xDE645d7DC8f33DbC92dd970d408A9f9cF50eCD1B",
+  "evm": {
+    "marketConsumerAddress": "0xc9443cAbc014FDbf2282b75f6C6A739e6365180B",
+    "chainName": "ethereum-testnet-sepolia",
+    "gasLimit": "500000"
+  }
 }
