@@ -1,85 +1,30 @@
 import {
   cre,
-  decodeJson,
   EVMClient,
   getNetwork,
+  handler,
   hexToBase64,
   HTTPCapability,
-  HTTPPayload,
   Runner,
-  type Runtime,
 } from "@chainlink/cre-sdk";
-import {
-  ConfigType,
-  CreateMarketSchemaType,
-  configSchema,
-  createMarketSchema,
-} from "./models";
-import { bytesToHex, encodeAbiParameters, parseAbiParameters } from "viem";
-
-const createNewMarket = (
-  runtime: Runtime<ConfigType>,
-  evmClient: EVMClient,
-  inputData: CreateMarketSchemaType,
-) => {
-  const { question } = inputData;
-  const reportData = encodeAbiParameters(parseAbiParameters("string"), [
-    question as string,
-  ]);
-
-  const reportResponse = runtime
-    .report({
-      encodedPayload: hexToBase64(reportData),
-      encoderName: "evm",
-      signingAlgo: "ecdsa",
-      hashingAlgo: "keccak256",
-    })
-    .result();
-
-  const { gasLimit, marketConsumerAddress } = runtime.config.evm;
-  const writeReportResult = evmClient
-    .writeReport(runtime, {
-      receiver: marketConsumerAddress,
-      report: reportResponse,
-      gasConfig: {
-        gasLimit,
-      },
-    })
-    .result();
-  runtime.log("Waiting for write report response");
-
-  const txHash = bytesToHex(writeReportResult.txHash || new Uint8Array());
-  runtime.log(`View transaction at https://sepolia.etherscan.io/tx/${txHash}`);
-  return txHash;
-};
-
-const onHttpTrigger = (
-  runtime: Runtime<ConfigType>,
-  payload: HTTPPayload,
-): string => {
-  if (!payload.input || !payload.input.length)
-    throw new Error(`Empty request payload`);
-
-  const inputData = createMarketSchema.safeParse(decodeJson(payload.input));
-  if (!inputData.success) throw new Error(`Invalid model`);
-  runtime.log(`input: ${inputData.data}`);
-
-  const network = getNetwork({
-    chainFamily: "evm",
-    chainSelectorName: runtime.config.evm.chainName,
-    isTestnet: true,
-  });
-  if (!network) throw new Error(`Unknown chain`);
-
-  const evmClient = new EVMClient(network.chainSelector.selector);
-  // const txHash = createNewMarket(runtime, evmClient, inputData.data);
-  // runtime.log(`txHash: ${txHash}`);
-
-  return "Success";
-};
+import { ConfigType, configSchema } from "./models";
+import { keccak256, toBytes } from "viem";
+import { onHttpTrigger } from "./callbacks/httpTrigger";
+import { onLogTrigger } from "./callbacks/evmLogTrigger";
 
 const initWorkflow = (config: ConfigType) => {
   const httpTrigger = new HTTPCapability();
+
+  const { chainName, marketConsumerAddress } = config.evm;
+  const network = getNetwork({
+    chainFamily: "evm",
+    chainSelectorName: chainName,
+    isTestnet: true,
+  });
+  if (!network) throw new Error(`Network not found`);
+
+  const evmClient = new EVMClient(network.chainSelector.selector);
+  const eventHash = keccak256(toBytes("CREEvent(address,uint256)"));
 
   return [
     cre.handler(
@@ -92,6 +37,14 @@ const initWorkflow = (config: ConfigType) => {
         ],
       }),
       onHttpTrigger,
+    ),
+    handler(
+      evmClient.logTrigger({
+        addresses: [hexToBase64(marketConsumerAddress)],
+        topics: [{ values: [eventHash] }],
+        confidence: "CONFIDENCE_LEVEL_FINALIZED",
+      }),
+      onLogTrigger,
     ),
   ];
 };
