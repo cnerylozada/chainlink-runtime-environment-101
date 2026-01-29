@@ -2,7 +2,7 @@ import { EVMLog, type Runtime } from "@chainlink/cre-sdk";
 import { ConfigType } from "../models";
 import { bytesToHex, decodeEventLog, parseAbi } from "viem";
 
-const EVENT_ABI = parseAbi([
+const CRE_EVENT_ABI = parseAbi([
   "event CREEvent(address indexed sender, uint256 amount)",
 ]);
 
@@ -13,7 +13,7 @@ export const onLogTrigger = (runtime: Runtime<ConfigType>, log: EVMLog) => {
   ];
   const data = bytesToHex(log.data);
 
-  const decodedLog = decodeEventLog({ abi: EVENT_ABI, data, topics });
+  const decodedLog = decodeEventLog({ abi: CRE_EVENT_ABI, data, topics });
   runtime.log(`Event name: ${decodedLog.eventName}`);
 
   return decodedLog.args;

@@ -24,7 +24,7 @@ const initWorkflow = (config: ConfigType) => {
   if (!network) throw new Error(`Network not found`);
 
   const evmClient = new EVMClient(network.chainSelector.selector);
-  const eventHash = keccak256(toBytes("CREEvent(address,uint256)"));
+  const creEventHash = keccak256(toBytes("CREEvent(address,uint256)"));
 
   return [
     cre.handler(
@@ -41,7 +41,7 @@ const initWorkflow = (config: ConfigType) => {
     handler(
       evmClient.logTrigger({
         addresses: [hexToBase64(marketConsumerAddress)],
-        topics: [{ values: [eventHash] }],
+        topics: [{ values: [creEventHash] }],
         confidence: "CONFIDENCE_LEVEL_FINALIZED",
       }),
       onLogTrigger,
